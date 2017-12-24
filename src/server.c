@@ -478,6 +478,8 @@ static void *maclink_thread(void *user) {
 }
 
 void maclink_init() {
+    // don't break ^C
+    zsys_handler_set(NULL);
     state.mimic_wait = zsock_new_pair("@inproc://mimic_sync");
     state.mimic_signal = zsock_new_pair(">inproc://mimic_sync");
 
