@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.8)
+cmake_minimum_required(VERSION 3.10.0)
 
 project(draconity)
 set(CMAKE_MACOSX_RPATH 1)
@@ -6,10 +6,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-find_package (libbson-1.0 1.8 REQUIRED)
-include_directories(${BSON_INCLUDE_DIRS})
-link_libraries(${BSON_LIBRARIES})
-add_definitions(${BSON_DEFINITIONS})
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+SET(CMAKE_SKIP_BUILD_RPATH TRUE)
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
 link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 include_directories(src)
@@ -22,7 +21,12 @@ endif()
 
 file(GLOB_RECURSE SOURCE src/*.c)
 add_library(draconity SHARED ${SOURCE})
-target_link_libraries(draconity m dl pthread zmq czmq bson-1.0)
+target_link_libraries(draconity m dl pthread czmq bson-1.0)
 if (DEBUG)
     target_link_libraries(draconity clang_rt.asan_osx_dynamic)
 endif()
+
+add_custom_command(TARGET draconity
+    POST_BUILD COMMAND
+    ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path"
+    $<TARGET_FILE:draconity>)
