@@ -1,10 +1,13 @@
 #include <bson.h>
 #include <czmq.h>
 #include <pthread.h>
+#include <pwd.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "phrase.h"
 #include "server.h"
@@ -477,6 +480,20 @@ static void *draconity_thread(void *user) {
     }
 }
 
+static char *homedir() {
+    char *home = getenv("HOME");
+    if (home) {
+        return strdup(home);
+    } else {
+        struct passwd pw, *pwp;
+        char buf[1024];
+        if (getpwuid_r(getuid(), &pw, buf, sizeof(buf), &pwp) == 0) {
+            return strdup(pwp->pw_dir);
+        }
+        return NULL;
+    }
+}
+
 void draconity_init() {
     // don't break ^C
     zsys_handler_set(NULL);
@@ -486,10 +503,30 @@ void draconity_init() {
     pthread_mutex_init(&state.keylock, NULL);
     pthread_mutex_init(&state.publock, NULL);
 
-    state.pubsock = zsock_new_pub("ipc:///tmp/ml_pub");
-    state.cmdsock = zsock_new_rep("ipc:///tmp/ml_cmd");
+    char *home = homedir();
+    if (home) {
+        char *talon = NULL, *_int = NULL, *pubs = NULL, *cmds = NULL;
+        asprintf(&talon, "%s/.talon", home);
+        asprintf(&_int, "%s/.sys", talon);
+        mkdir(talon, 0755);
+        if (!mkdir(_int, 0755) || errno == EEXIST) {
+            asprintf(&pubs, "ipc://%s/dc_pub.sock", _int);
+            asprintf(&cmds, "ipc://%s/dc_cmd.sock", _int);
+            state.pubsock = zsock_new_pub(pubs);
+            state.cmdsock = zsock_new_rep(cmds);
+            free(home);
+            free(talon);
+            free(_int);
+            free(pubs);
+            free(cmds);
+        } else {
+            perror("draconity: failed to make base socket dir (~/.talon/.sys)");
+        }
+    } else {
+        perror("draconity: could not find home directory");
+    }
     if (state.pubsock == NULL || state.cmdsock == NULL) {
-        printf("zmq init failed\n");
+        fprintf(stderr, "draconity: zmq init failed\n");
         exit(1);
     }
 #ifdef NODRAGON
@@ -499,7 +536,7 @@ void draconity_init() {
 
     int rc = pthread_create(&state.tid, NULL, draconity_thread, NULL);
     if (rc) {
-        printf("thread creation failed\n");
+        printf("draconity: thread creation failed\n");
         exit(1);
     }
     state.start_ts = bson_get_monotonic_time();
