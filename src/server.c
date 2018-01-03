@@ -8,7 +8,7 @@
 
 #include "phrase.h"
 #include "server.h"
-#include "maclink.h"
+#include "draconity.h"
 #include "tack.h"
 
 #define align4(len) ((len + 4) & ~3)
@@ -19,8 +19,8 @@
 #define streq(a, b) !strcmp(a, b)
 #endif
 
-struct state maclink_state = {0};
-#define state maclink_state
+struct state draconity_state = {0};
+#define state draconity_state
 
 #define US  1
 #define MS  (1000 * US)
@@ -32,7 +32,7 @@ typedef struct {
     uint64_t serial;
 } reusekey;
 
-void maclink_publish(const char *topic, bson_t *obj) {
+void draconity_publish(const char *topic, bson_t *obj) {
     BSON_APPEND_INT64(obj, "ts", bson_get_monotonic_time());
     uint32_t length = 0;
     uint8_t *buf = bson_destroy_with_steal(obj, true, &length);
@@ -43,7 +43,7 @@ void maclink_publish(const char *topic, bson_t *obj) {
     bson_free(buf);
 }
 
-void maclink_logf(const char *fmt, ...) {
+void draconity_logf(const char *fmt, ...) {
     char *str = NULL;
     va_list va;
     va_start(va, fmt);
@@ -52,7 +52,7 @@ void maclink_logf(const char *fmt, ...) {
 
     bson_t obj = BSON_INITIALIZER;
     BSON_APPEND_UTF8(&obj, "msg", str);
-    maclink_publish("log", &obj);
+    draconity_publish("log", &obj);
     free(str);
 }
 
@@ -75,7 +75,7 @@ static void send_success() {
     send_reply(BCON_NEW("success", BCON_BOOL(true)));
 }
 
-static int grammar_disable(maclink_grammar *grammar, char **errmsg) {
+static int grammar_disable(draconity_grammar *grammar, char **errmsg) {
     int rc = 0;
     if ((rc =_DSXGrammar_Deactivate(grammar->handle, 0, grammar->main_rule))) {
         asprintf(errmsg, "error deactivating grammar: %d", rc);
@@ -97,20 +97,20 @@ static int grammar_disable(maclink_grammar *grammar, char **errmsg) {
     return 0;
 }
 
-static void grammar_free(maclink_grammar *g) {
+static void grammar_free(draconity_grammar *g) {
     free((void *)g->main_rule);
     free((void *)g->name);
     free((void *)g->appname);
-    memset(g, 0, sizeof(maclink_grammar));
+    memset(g, 0, sizeof(draconity_grammar));
     free(g);
 }
 
-static int grammar_unload(maclink_grammar *g) {
+static int grammar_unload(draconity_grammar *g) {
     char *disablemsg = NULL;
     int rc = 0;
     if (g->enabled) {
         if ((rc = grammar_disable(g, &disablemsg))) {
-            maclink_logf("during unload: %s", disablemsg);
+            draconity_logf("during unload: %s", disablemsg);
             free(disablemsg);
             return rc;
         }
@@ -138,7 +138,7 @@ static void handle(const uint8_t *msg, uint32_t msglen) {
     char *errmsg = NULL;
     bool errfree = false;
 
-    maclink_grammar *grammar = NULL;
+    draconity_grammar *grammar = NULL;
     char *cmd = NULL, *name = NULL, *list = NULL, *main_rule = NULL;
     bool enabled = false, exclusive = false;
     int priority = 0;
@@ -306,7 +306,7 @@ static void handle(const uint8_t *msg, uint32_t msglen) {
             goto end;
         }
         if (grammar) {
-            maclink_logf("warning: reloading \"%s\"", name);
+            draconity_logf("warning: reloading \"%s\"", name);
             int rc = grammar_unload(grammar);
             if (rc) {
                 asprintf(&errmsg, "error unloading grammar: %d", rc);
@@ -315,7 +315,7 @@ static void handle(const uint8_t *msg, uint32_t msglen) {
             }
         }
         // TODO: BOUNDS CHECK GRAMMAR HERE
-        grammar = calloc(1, sizeof(maclink_grammar));
+        grammar = calloc(1, sizeof(draconity_grammar));
         grammar->name = strdup(name);
         grammar->main_rule = strdup(main_rule);
         dsx_dataptr dp = {.data = (void *)data_buf, .size = data_len};
@@ -453,7 +453,7 @@ end:
         goto end;
     }
     BSON_APPEND_DOCUMENT(pub, "cmd", &root);
-    maclink_publish("cmd", pub);
+    draconity_publish("cmd", pub);
     return;
 
 no_grammar:
@@ -465,7 +465,7 @@ not_ready:
     goto end;
 }
 
-static void *maclink_thread(void *user) {
+static void *draconity_thread(void *user) {
     printf("[-] cmd thread launched\n");
     while (1) {
         uint8_t *data = NULL;
@@ -477,7 +477,7 @@ static void *maclink_thread(void *user) {
     }
 }
 
-void maclink_init() {
+void draconity_init() {
     // don't break ^C
     zsys_handler_set(NULL);
     state.mimic_wait = zsock_new_pair("@inproc://mimic_sync");
@@ -493,11 +493,11 @@ void maclink_init() {
         exit(1);
     }
 #ifdef NODRAGON
-    maclink_thread(NULL);
+    draconity_thread(NULL);
     exit(0);
 #endif
 
-    int rc = pthread_create(&state.tid, NULL, maclink_thread, NULL);
+    int rc = pthread_create(&state.tid, NULL, draconity_thread, NULL);
     if (rc) {
         printf("thread creation failed\n");
         exit(1);
@@ -514,10 +514,10 @@ static char *micstates[] = {
     "resume",
 };
 
-void maclink_attrib_changed(int key, dsx_attrib *attrib) {
+void draconity_attrib_changed(int key, dsx_attrib *attrib) {
     char *attr = attrib->name;
     if (streq(attr, "MICON")) {
-        maclink_publish("status", BCON_NEW("cmd", BCON_UTF8("mic"), "status", BCON_UTF8("on")));
+        draconity_publish("status", BCON_NEW("cmd", BCON_UTF8("mic"), "status", BCON_UTF8("on")));
     } else if (streq(attr, "MICSTATE")) {
         // micstate crashes on invalid free (some kind of mem corrupt)
         return;
@@ -531,13 +531,13 @@ void maclink_attrib_changed(int key, dsx_attrib *attrib) {
             name = "invalid";
         }
         state.micstate = name;
-        maclink_publish("status", BCON_NEW("cmd", BCON_UTF8("mic"), "status", BCON_UTF8(name)));
+        draconity_publish("status", BCON_NEW("cmd", BCON_UTF8("mic"), "status", BCON_UTF8(name)));
     } else if (streq(attr, "SPEAKERCHANGED")) {
         // this is slow
         // void *speaker = _DSXEngine_GetCurrentSpeaker(_engine);
         if (!state.ready) {
-            printf("[+] maclink ready\n");
-            maclink_publish("status", BCON_NEW("cmd", BCON_UTF8("ready")));
+            printf("[+] draconity ready\n");
+            draconity_publish("status", BCON_NEW("cmd", BCON_UTF8("ready")));
             state.ready = true;
         }
         // state.speaker = speaker;
@@ -546,15 +546,15 @@ void maclink_attrib_changed(int key, dsx_attrib *attrib) {
     }
 }
 
-void maclink_mimic_done(int key, dsx_mimic *mimic) {
+void draconity_mimic_done(int key, dsx_mimic *mimic) {
     zsock_signal(state.mimic_signal, (mimic->flags != 0));
 }
 
-void maclink_paused(int key, dsx_paused *paused) {
+void draconity_paused(int key, dsx_paused *paused) {
     _DSXEngine_Resume(_engine, paused->token);
 }
 
-int maclink_phrase_begin(int key, void *data) {
+int draconity_phrase_begin(int key, void *data) {
     // TODO: atomics? portability?
     pthread_mutex_lock(&state.keylock);
     state.serial++;
@@ -562,11 +562,11 @@ int maclink_phrase_begin(int key, void *data) {
     return 0;
 }
 
-int maclink_phrase_end(int key, void *data) {
+int draconity_phrase_end(int key, void *data) {
     return 0;
 }
 
 __attribute__((destructor))
-static void maclink_shutdown() {
+static void draconity_shutdown() {
     pthread_exit(NULL);
 }

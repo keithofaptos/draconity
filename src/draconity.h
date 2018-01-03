@@ -1,5 +1,5 @@
-#ifndef MACLINK_H
-#define MACLINK_H
+#ifndef draconity_H
+#define draconity_H
 
 #include <czmq.h>
 #include <stdint.h>
@@ -71,7 +71,7 @@ typedef struct {
     uint64_t flags;
 } dsx_mimic;
 
-#define _engine maclink_engine
+#define _engine draconity_engine
 extern drg_engine *_engine;
 
 #define DLAPI extern
@@ -99,7 +99,7 @@ struct state {
     zsock_t *resume_wait, *resume_signal;
 };
 
-extern struct state maclink_state;
+extern struct state draconity_state;
 
 typedef struct {
     uint64_t key;
@@ -110,6 +110,6 @@ typedef struct {
     int priority;
     const char *appname;
     unsigned int endkey, beginkey, hypokey;
-} maclink_grammar;
+} draconity_grammar;
 
 #endif

@@ -1,5 +1,5 @@
 #include <bson.h>
-#include "maclink.h"
+#include "draconity.h"
 #include "phrase.h"
 #include "server.h"
 
@@ -62,10 +62,10 @@ void result_to_bson(bson_t *obj, dsx_result *result) {
 
 static char *safe_gkey_to_name(void *key) {
     char *name = NULL;
-    pthread_mutex_lock(&maclink_state.keylock);
-    maclink_grammar *g = tack_get(&maclink_state.gkeys, (int)key);
+    pthread_mutex_lock(&draconity_state.keylock);
+    draconity_grammar *g = tack_get(&draconity_state.gkeys, (int)key);
     if (g) name = strdup(g->name);
-    pthread_mutex_unlock(&maclink_state.keylock);
+    pthread_mutex_unlock(&draconity_state.keylock);
     return name;
 }
 
@@ -89,7 +89,7 @@ int phrase_publish(void *key, dsx_end_phrase *endphrase, const char *cmd, bool h
         BSON_APPEND_ARRAY_BEGIN(&obj, "phrase", &array);
         bson_append_array_end(&obj, &array);
     }
-    maclink_publish("phrase", &obj);
+    draconity_publish("phrase", &obj);
     return 0;
 }
 
@@ -104,7 +104,7 @@ int phrase_hypothesis(void *key, dsx_end_phrase *endphrase) {
 int phrase_begin(void *key, void *data) {
     char *name = safe_gkey_to_name(key);
     if (!name) return 0;
-    maclink_publish("phrase", BCON_NEW("cmd", BCON_UTF8("p.begin"), "grammar", BCON_UTF8(name)));
+    draconity_publish("phrase", BCON_NEW("cmd", BCON_UTF8("p.begin"), "grammar", BCON_UTF8(name)));
     free(name);
     return 0;
 }

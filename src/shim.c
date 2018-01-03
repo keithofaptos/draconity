@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "server.h"
-#include "maclink.h"
+#include "draconity.h"
 
 static void *server_so = NULL;
 drg_engine *_engine = NULL;
@@ -15,7 +15,7 @@ drg_engine *_engine = NULL;
 
 __attribute__((constructor))
 static void cons() {
-    printf("[+] maclink init\n");
+    printf("[+] draconity init\n");
     server_so = dlopen("server.so", RTLD_LOCAL | RTLD_LAZY);
     dprintf("%46s %p\n", "server.so", server_so);
     #define load(x) do { _##x = dlsym(server_so, #x); dprintf("%46s %p\n", #x, _##x); } while (0)
@@ -55,33 +55,33 @@ static void cons() {
     load(DSXResult_GetWordNode);
     load(DSXResult_Destroy);
 
-    maclink_init();
-    printf("[+] maclink attached\n");
+    draconity_init();
+    printf("[+] draconity attached\n");
 }
 
 static void engine_setup(drg_engine *engine) {
     static unsigned int cb_key = 0;
-    int ret = _DSXEngine_RegisterAttribChangedCallback(engine, maclink_attrib_changed, NULL, &cb_key);
-    if (ret) maclink_logf("error adding attribute callback: %d", ret);
+    int ret = _DSXEngine_RegisterAttribChangedCallback(engine, draconity_attrib_changed, NULL, &cb_key);
+    if (ret) draconity_logf("error adding attribute callback: %d", ret);
 
-    ret = _DSXEngine_RegisterMimicDoneCallback(engine, maclink_mimic_done, NULL, &cb_key);
-    if (ret) maclink_logf("error adding mimic done callback: %d", ret);
+    ret = _DSXEngine_RegisterMimicDoneCallback(engine, draconity_mimic_done, NULL, &cb_key);
+    if (ret) draconity_logf("error adding mimic done callback: %d", ret);
 
-    ret = _DSXEngine_RegisterPausedCallback(engine, maclink_paused, "paused?", NULL, &cb_key);
-    if (ret) maclink_logf("error adding paused callback: %d", ret);
+    ret = _DSXEngine_RegisterPausedCallback(engine, draconity_paused, "paused?", NULL, &cb_key);
+    if (ret) draconity_logf("error adding paused callback: %d", ret);
 
-    ret = _DSXEngine_SetBeginPhraseCallback(engine, maclink_phrase_begin, NULL, &cb_key);
-    if (ret) maclink_logf("error setting phrase begin callback: %d", ret);
+    ret = _DSXEngine_SetBeginPhraseCallback(engine, draconity_phrase_begin, NULL, &cb_key);
+    if (ret) draconity_logf("error setting phrase begin callback: %d", ret);
 
-    ret = _DSXEngine_SetEndPhraseCallback(engine, maclink_phrase_end, NULL, &cb_key);
-    if (ret) maclink_logf("error setting phrase end callback: %d", ret);
+    ret = _DSXEngine_SetEndPhraseCallback(engine, draconity_phrase_end, NULL, &cb_key);
+    if (ret) draconity_logf("error setting phrase end callback: %d", ret);
 
-    maclink_publish("status", BCON_NEW("cmd", BCON_UTF8("start")));
+    draconity_publish("status", BCON_NEW("cmd", BCON_UTF8("start")));
 }
 
 void *DSXEngine_New() {
     _engine = _DSXEngine_New();
-    maclink_logf("DSXEngine_New() = %p", _engine);
+    draconity_logf("DSXEngine_New() = %p", _engine);
     engine_setup(_engine);
     return _engine;
 }
@@ -89,7 +89,7 @@ void *DSXEngine_New() {
 int DSXEngine_Create(char *s, uint64_t val, drg_engine **engine) {
     int ret = _DSXEngine_Create(s, val, engine);
     _engine = *engine;
-    maclink_logf("DSXEngine_Create(%s, %llu, &%p) = %d", s, val, engine, ret);
+    draconity_logf("DSXEngine_Create(%s, %llu, &%p) = %d", s, val, engine, ret);
     engine_setup(_engine);
     return ret;
 }
@@ -99,12 +99,12 @@ int DSXEngine_LoadGrammar(drg_engine *engine, int format, void *unk, drg_grammar
 }
 
 int DSXEngine_SetBeginPhraseCallback() {
-    maclink_logf("warning: called stubbed SetBeginPhraseCallback()\n");
+    draconity_logf("warning: called stubbed SetBeginPhraseCallback()\n");
     return 0;
 }
 
 int DSXEngine_SetEndPhraseCallback() {
-    maclink_logf("warning: called stubbed SetBeginPhraseCallback()\n");
+    draconity_logf("warning: called stubbed SetBeginPhraseCallback()\n");
     return 0;
 }
 
