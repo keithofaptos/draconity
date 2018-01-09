@@ -1,5 +1,7 @@
 import bson
+import os
 import zmq
+base = os.path.expanduser('~/.talon/.sys')
 
 def multrecv(s):
     ret = [s.recv()]
@@ -9,7 +11,7 @@ def multrecv(s):
 
 context = zmq.Context()
 s = context.socket(zmq.REQ)
-s.connect('ipc:///tmp/ml_cmd')
+s.connect('ipc://%s/dc_cmd.sock' % base)
 
 def call(d):
     s.send(bson.BSON.encode(d))
@@ -21,7 +23,7 @@ def listener():
     s.setsockopt(zmq.TCP_KEEPALIVE, 1)
     s.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 3000)
     s.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 1000)
-    s.connect('ipc:///tmp/ml_pub')
+    s.connect('ipc://%s/dc_pub.sock' % base)
     return s
 
 def wait():
